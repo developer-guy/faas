@@ -46,6 +46,26 @@ jobs:
             ghcr.io/${{ steps.get_repo_owner.outputs.repo_owner }}/gateway:${{ steps.get_tag.outputs.TAG }}
             ghcr.io/${{ steps.get_repo_owner.outputs.repo_owner }}/gateway:${{ github.sha }}
             ghcr.io/${{ steps.get_repo_owner.outputs.repo_owner }}/gateway:latest
+      - name: Pull image to scan with Trivy
+        run: |
+          docker image pull ghcr.io/${{ steps.get_repo_owner.outputs.repo_owner }}/gateway:${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner in docker mode
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ steps.get_repo_owner.outputs.repo_owner }}/gateway:${{ github.sha }}'
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results-docker.sarif'
+          severity: 'CRITICAL'
+        env:
+          TRIVY_USERNAME: ${{ github.repository_owner }}
+          TRIVY_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: 'trivy-results-docker.sarif'
 
   build-auth-plugins:
     runs-on: ubuntu-latest
